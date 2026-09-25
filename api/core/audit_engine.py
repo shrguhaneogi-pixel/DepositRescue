@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 from typing import List, Tuple
-from app.schemas import RawDeductionItem, AuditedDeductionItem, AuditResponse, ExtractedLLMResponse
 
-# Load static routine maintenance rules
+try:
+    from api.core.schemas import RawDeductionItem, AuditedDeductionItem, AuditResponse, ExtractedLLMResponse
+except ImportError:
+    from core.schemas import RawDeductionItem, AuditedDeductionItem, AuditResponse, ExtractedLLMResponse
+
 RULES_FILE = Path(__file__).parent / "rules.json"
 
 def load_rules() -> Tuple[List[str], float]:

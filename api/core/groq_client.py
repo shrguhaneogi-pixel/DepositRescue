@@ -4,11 +4,14 @@ import json
 from typing import Optional
 from dotenv import load_dotenv
 from groq import Groq
-from app.schemas import ExtractedLLMResponse, RawDeductionItem
+
+try:
+    from api.core.schemas import ExtractedLLMResponse, RawDeductionItem
+except ImportError:
+    from core.schemas import ExtractedLLMResponse, RawDeductionItem
 
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 def fallback_regex_extractor(text: str) -> ExtractedLLMResponse:
@@ -49,7 +52,7 @@ def extract_deductions_from_text(text: str) -> ExtractedLLMResponse:
     Extracts itemized deductions from raw landlord text using Groq API with Pydantic v2 schema.
     Falls back gracefully if Groq API key is unconfigured or fails.
     """
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         return fallback_regex_extractor(text)
 
@@ -82,7 +85,6 @@ def extract_deductions_from_text(text: str) -> ExtractedLLMResponse:
         content = response.choices[0].message.content
         if content:
             parsed = json.loads(content)
-            # Pydantic v2 validation
             return ExtractedLLMResponse.model_validate(parsed)
             
     except Exception as err:
