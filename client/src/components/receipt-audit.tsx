@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, CheckCircle2, ShieldAlert, Sparkles, Scale, FileText, ArrowRight, RefreshCw } from "lucide-react";
 
 interface AuditedItem {
-  item_name: str;
+  item_name: string;
   original_cost: number;
   adjusted_cost: number;
   is_routine_maintenance: boolean;
