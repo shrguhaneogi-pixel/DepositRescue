@@ -1,0 +1,29 @@
+{
+  "routine_maintenance_flags": [
+    "painting",
+    "touch up paint",
+    "touch-up paint",
+    "interior paint",
+    "faded paint",
+    "wall scuff",
+    "scuff marks",
+    "cleaning",
+    "routine cleaning",
+    "deep cleaning",
+    "carpet cleaning",
+    "steam cleaning",
+    "wear and tear",
+    "normal wear",
+    "nail holes",
+    "small nail holes",
+    "pin holes",
+    "aging appliances",
+    "light bulb",
+    "lightbulbs",
+    "faucet washer",
+    "hvac filter",
+    "dusting",
+    "grout discoloration"
+  ],
+  "statutory_multiplier": 2.0
+}
