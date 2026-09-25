@@ -18,9 +18,9 @@ click==8.5.0
 distro==1.9.0
     # via groq
 fastapi==0.141.1
-    # via deposit-rescue-backend (pyproject.toml)
+    # via deposit-rescue-api (pyproject.toml)
 groq==1.7.0
-    # via deposit-rescue-backend (pyproject.toml)
+    # via deposit-rescue-api (pyproject.toml)
 h11==0.16.0
     # via
     #   httpcore
@@ -35,13 +35,13 @@ idna==3.20
     #   httpx
 pydantic==2.13.5
     # via
-    #   deposit-rescue-backend (pyproject.toml)
+    #   deposit-rescue-api (pyproject.toml)
     #   fastapi
     #   groq
 pydantic-core==2.46.5
     # via pydantic
 python-dotenv==1.2.3
-    # via deposit-rescue-backend (pyproject.toml)
+    # via deposit-rescue-api (pyproject.toml)
 sniffio==1.3.1
     # via groq
 starlette==1.7.0
@@ -59,4 +59,4 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
 uvicorn==0.54.0
-    # via deposit-rescue-backend (pyproject.toml)
+    # via deposit-rescue-api (pyproject.toml)
