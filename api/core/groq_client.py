@@ -12,6 +12,7 @@ except ImportError:
     from core.schemas import ExtractedLLMResponse, RawDeductionItem
 
 load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
@@ -19,42 +20,45 @@ MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 def clean_item_name(name: str) -> str:
     """Strips leading list numbers, bullets, and surrounding whitespace/punctuation."""
     name = re.sub(r"^(?:[0-9]+[\.\)]\s*|[\-\*•\>]\s*)", "", name.strip())
+    name = re.sub(r"\s+(?:USD|\$)?\s*[0-9,]+(?:\.[0-9]{1,2})?$", "", name, flags=re.IGNORECASE)
     return name.strip(" -:*•=\t\n")
 
 def fallback_regex_extractor(text: str) -> ExtractedLLMResponse:
     """
     Fallback deterministic regex parser when GROQ_API_KEY is not set or API fails.
-    Extracts dollar amounts (including commas) and line item descriptions from landlord text.
+    Extracts dollar amounts and line item descriptions from landlord text.
     """
     items = []
     lines = [line.strip() for line in text.split("\n") if line.strip()]
-
     for line in lines:
-        # Match dollar or USD currency amounts first
-        m = re.search(r"(?:\$|USD\s*)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)", line, re.IGNORECASE)
-        if not m:
-            # Fallback to colon or dash followed by numeric cost at line end
-            m = re.search(r"[:\-\=]\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\s*$", line)
-
-        if m:
-            cost_str = m.group(1).replace(",", "")
+        # Pattern 1: Description followed by $ or USD and amount (e.g. "Wall repainting: $1,200.00" or "Interior paint USD 250.00")
+        m1 = re.search(r"([A-Za-z0-9\s\/\-\'\(\)]+?)\s*(?:[:\-\=]\s*|\s+)(?:USD\s*|\$)\s*([0-9,]+(?:\.[0-9]{1,2})?)", line, re.IGNORECASE)
+        if m1:
+            name = clean_item_name(m1.group(1))
             try:
-                cost = float(cost_str)
-                if cost > 0:
-                    start, end = m.span()
-                    prefix = line[:start]
-                    suffix = line[end:]
-                    raw_name = prefix if prefix.strip() else suffix
-                    name = clean_item_name(raw_name)
-                    if not name:
-                        name = "Landlord Deduction Item"
+                cost = float(m1.group(2).replace(",", ""))
+                if name and cost > 0:
                     items.append(RawDeductionItem(item_name=name, cost=cost, category="Extracted Charge"))
                     continue
             except ValueError:
                 pass
 
+        # Pattern 2: Amount preceding description (e.g. "$150.00 for carpet cleaning")
+        m2 = re.search(r"(?:USD\s*|\$)\s*([0-9,]+(?:\.[0-9]{1,2})?)\s*(?:[:\-\=]\s*|\s+(?:for|on)?\s*)([A-Za-z0-9\s\/\-\'\(\)]+)", line, re.IGNORECASE)
+        if m2:
+            try:
+                cost = float(m2.group(1).replace(",", ""))
+                name = clean_item_name(m2.group(2))
+                if name and cost > 0:
+                    items.append(RawDeductionItem(item_name=name, cost=cost, category="Extracted Charge"))
+            except ValueError:
+                pass
+
     if not items:
-        items.append(RawDeductionItem(item_name="Unspecified Landlord Deduction", cost=250.0, category="General"))
+        return ExtractedLLMResponse(
+            deductions=[],
+            landlord_statement_summary="No monetary landlord deductions identified in input."
+        )
 
     return ExtractedLLMResponse(
         deductions=items,
@@ -72,11 +76,12 @@ def extract_deductions_from_text(text: str) -> ExtractedLLMResponse:
 
     try:
         client = Groq(api_key=api_key, timeout=15.0)
-        system_instruction = (
+        prompt = (
             "You are an expert security deposit audit assistant. "
             "Extract all itemized deductions from the landlord statement into valid JSON. "
             "Return JSON matching key 'deductions', where each item has 'item_name' (string), "
-            "'cost' (number), 'category' (string), and 'explanation' (string)."
+            "'cost' (number), 'category' (string), and 'explanation' (string).\n\n"
+            f"Landlord Text:\n{text}"
         )
         
         response = client.chat.completions.create(
@@ -84,33 +89,24 @@ def extract_deductions_from_text(text: str) -> ExtractedLLMResponse:
             messages=[
                 {
                     "role": "system",
-                    "content": system_instruction
+                    "content": "You output strictly valid JSON conforming to the requested schema."
                 },
                 {
                     "role": "user",
-                    "content": f"Landlord Statement:\n{text}"
+                    "content": prompt
                 }
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
-            timeout=15.0,
+            temperature=0.1
         )
         
         content = response.choices[0].message.content
         if content:
-            content = content.strip()
-            if content.startswith("```"):
-                content = re.sub(r"^```(?:json)?\n?", "", content)
-                content = re.sub(r"\n?```$", "", content).strip()
             parsed = json.loads(content)
-            
-            # Normalize list vs dict payload format
-            if isinstance(parsed, list):
-                parsed = {"deductions": parsed}
-            elif isinstance(parsed, dict) and "deductions" not in parsed and "items" in parsed:
-                parsed["deductions"] = parsed.pop("items")
-
-            return ExtractedLLMResponse.model_validate(parsed)
+            if isinstance(parsed, dict) and "deductions" in parsed:
+                return ExtractedLLMResponse.model_validate(parsed)
+            elif isinstance(parsed, list):
+                return ExtractedLLMResponse(deductions=[RawDeductionItem.model_validate(i) for i in parsed])
             
     except Exception as err:
         logger.warning(f"Groq API call warning: {err}. Using fallback parser.")
