@@ -10,6 +10,8 @@ from api.core.groq_client import fallback_regex_extractor
 from api.index import audit_landlord_statement
 from fastapi import HTTPException
 
+import asyncio
+
 class TestDepositRescueVercelAudit(unittest.TestCase):
     def test_mock_deduction_audit(self):
         sample_text = (
@@ -20,7 +22,7 @@ class TestDepositRescueVercelAudit(unittest.TestCase):
         )
         
         request = AuditRequest(text=sample_text)
-        response: AuditResponse = audit_landlord_statement(request)
+        response: AuditResponse = asyncio.run(audit_landlord_statement(request))
         
         # Verify Pydantic schema contract & math logic
         self.assertEqual(response.raw_total, 650.0)
@@ -35,7 +37,7 @@ class TestDepositRescueVercelAudit(unittest.TestCase):
             "2. Replacement window pane: $450.00"
         )
         request = AuditRequest(text=sample_text)
-        response: AuditResponse = audit_landlord_statement(request)
+        response: AuditResponse = asyncio.run(audit_landlord_statement(request))
         
         self.assertEqual(response.raw_total, 1650.0)
         self.assertEqual(response.illegal_total, 1200.0)
@@ -44,7 +46,7 @@ class TestDepositRescueVercelAudit(unittest.TestCase):
 
     def test_empty_or_whitespace_text_validation(self):
         with self.assertRaises(HTTPException) as cm:
-            audit_landlord_statement(AuditRequest(text="     "))
+            asyncio.run(audit_landlord_statement(AuditRequest(text="     ")))
         self.assertEqual(cm.exception.status_code, 400)
 
     def test_fallback_regex_extractor_directly(self):
@@ -59,7 +61,7 @@ class TestDepositRescueVercelAudit(unittest.TestCase):
             "2. Broken front door lock: $120.00"
         )
         request = AuditRequest(text=sample_text)
-        response: AuditResponse = audit_landlord_statement(request)
+        response: AuditResponse = asyncio.run(audit_landlord_statement(request))
         self.assertEqual(response.raw_total, 300.0)
         self.assertEqual(response.illegal_total, 0.0)
         self.assertEqual(response.allowed_total, 300.0)
@@ -72,7 +74,7 @@ class TestDepositRescueVercelAudit(unittest.TestCase):
             "3. Plumbing damage: $49.34"
         )
         request = AuditRequest(text=sample_text)
-        response: AuditResponse = audit_landlord_statement(request)
+        response: AuditResponse = asyncio.run(audit_landlord_statement(request))
         item_sum = round(sum(item.original_cost for item in response.items), 2)
         self.assertEqual(response.raw_total, item_sum)
         self.assertEqual(response.raw_total, 200.00)
@@ -83,6 +85,32 @@ class TestDepositRescueVercelAudit(unittest.TestCase):
         self.assertEqual(len(extracted.deductions), 2)
         self.assertEqual(extracted.deductions[0].item_name, "Interior paint")
         self.assertEqual(extracted.deductions[0].cost, 250.0)
+
+from fastapi.testclient import TestClient
+from api.index import app
+
+class TestFastAPIClientIntegration(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_health_check_endpoint(self):
+        response = self.client.get("/api/py")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "online")
+
+    def test_security_headers_present(self):
+        response = self.client.get("/api/py")
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(response.headers.get("x-frame-options"), "DENY")
+
+    def test_api_audit_post_endpoint(self):
+        payload = {"text": "Wall repainting: $300.00\nRoutine cleaning: $150.00"}
+        response = self.client.post("/api/py/audit", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["raw_total"], 450.0)
+        self.assertEqual(data["illegal_total"], 450.0)
+        self.assertEqual(data["statutory_recovery"], 900.0)
 
 if __name__ == "__main__":
     unittest.main()

@@ -75,76 +75,87 @@ export default function Background3D({ scrollYProgress, mouseX, mouseY }: Backgr
     const unsubscribeMouseX = mouseX.on("change", (v: number) => { targetMouseX = v; });
     const unsubscribeMouseY = mouseY.on("change", (v: number) => { targetMouseY = v; });
 
+    // Respect user prefers-reduced-motion accessibility preference
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let isTabVisible = !document.hidden;
+    const handleVisibilityChange = () => {
+      isTabVisible = !document.hidden;
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     let angle = 0;
 
     const render = () => {
-      angle += 0.003;
-      ctx.clearRect(0, 0, width, height);
+      if (isTabVisible && !prefersReducedMotion) {
+        angle += 0.003;
+        ctx.clearRect(0, 0, width, height);
 
-      // Deep radial background gradient
-      const bgGrad = ctx.createRadialGradient(
-        width / 2 + targetMouseX * 5,
-        height / 2 + targetMouseY * 5,
-        100,
-        width / 2,
-        height / 2,
-        Math.max(width, height) * 0.8
-      );
-      bgGrad.addColorStop(0, "#121218");
-      bgGrad.addColorStop(0.5, "#0a0a0e");
-      bgGrad.addColorStop(1, "#050507");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, width, height);
+        // Deep radial background gradient
+        const bgGrad = ctx.createRadialGradient(
+          width / 2 + targetMouseX * 5,
+          height / 2 + targetMouseY * 5,
+          100,
+          width / 2,
+          height / 2,
+          Math.max(width, height) * 0.8
+        );
+        bgGrad.addColorStop(0, "#121218");
+        bgGrad.addColorStop(0.5, "#0a0a0e");
+        bgGrad.addColorStop(1, "#050507");
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
 
-      // Draw subtle grid lines reacting to scroll/mouse
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.025)";
-      ctx.lineWidth = 1;
-      const gridSize = 80;
-      const offsetX = (targetMouseX * 2) % gridSize;
-      const offsetY = (targetMouseY * 2 + angle * 20) % gridSize;
+        // Draw subtle grid lines reacting to scroll/mouse
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.025)";
+        ctx.lineWidth = 1;
+        const gridSize = 80;
+        const offsetX = (targetMouseX * 2) % gridSize;
+        const offsetY = (targetMouseY * 2 + angle * 20) % gridSize;
 
-      for (let x = offsetX; x < width; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = offsetY; y < height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
+        for (let x = offsetX; x < width; x += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = offsetY; y < height; y += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
 
-      // Draw particle nodes & connecting lines
-      for (let i = 0; i < particleCount; i++) {
-        const p = particles[i];
-        p.x += p.vx + (targetMouseX * 0.02) / p.z;
-        p.y += p.vy + (targetMouseY * 0.02) / p.z;
+        // Draw particle nodes & connecting lines
+        for (let i = 0; i < particleCount; i++) {
+          const p = particles[i];
+          p.x += p.vx + (targetMouseX * 0.02) / p.z;
+          p.y += p.vy + (targetMouseY * 0.02) / p.z;
 
-        if (p.x < 0) p.x = width;
-        if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
+          if (p.x < 0) p.x = width;
+          if (p.x > width) p.x = 0;
+          if (p.y < 0) p.y = height;
+          if (p.y > height) p.y = 0;
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius * p.z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(244, 63, 94, ${0.18 * p.z})`;
-        ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * p.z, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(244, 63, 94, ${0.18 * p.z})`;
+          ctx.fill();
 
-        // Connect nearby particles
-        for (let j = i + 1; j < particleCount; j++) {
-          const p2 = particles[j];
-          const dx = p.x - p2.x;
-          const dy = p.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 140) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 * (1 - dist / 140)})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
+          // Connect nearby particles
+          for (let j = i + 1; j < particleCount; j++) {
+            const p2 = particles[j];
+            const dx = p.x - p2.x;
+            const dy = p.y - p2.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 140) {
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 * (1 - dist / 140)})`;
+              ctx.lineWidth = 0.8;
+              ctx.stroke();
+            }
           }
         }
       }
@@ -157,6 +168,7 @@ export default function Background3D({ scrollYProgress, mouseX, mouseY }: Backgr
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", handleResize);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       unsubscribeMouseX();
       unsubscribeMouseY();
     };
