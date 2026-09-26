@@ -22,7 +22,7 @@ class AuditedDeductionItem(BaseModel):
     explanation: str
 
 class AuditRequest(BaseModel):
-    text: str = Field(..., min_length=5, description="Itemized landlord deduction notice or text statement")
+    text: str = Field(..., min_length=5, max_length=20000, description="Itemized landlord deduction notice or text statement")
 
 class AuditResponse(BaseModel):
     raw_total: float

@@ -1,4 +1,3 @@
-import antigravity  # Antigravity Production Mandate
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -23,8 +22,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -34,8 +33,7 @@ app.add_middleware(
 def health_check():
     return {
         "status": "online",
-        "service": "DepositRescue Vercel API",
-        "antigravity": "enabled"
+        "service": "DepositRescue Vercel API"
     }
 
 @app.post("/audit", response_model=AuditResponse)

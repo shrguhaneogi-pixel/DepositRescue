@@ -49,14 +49,14 @@ export default function ReceiptAudit() {
     setError(null);
 
     try {
-      // Primary API endpoint per original task requirements: /api/audit (with fallback to /api/py/audit)
+      // Primary API endpoint per original task requirements: /api/audit (with fallback to /api/py/audit on 404)
       let res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
 
-      if (!res.ok) {
+      if (res.status === 404) {
         res = await fetch("/api/py/audit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -65,14 +65,25 @@ export default function ReceiptAudit() {
       }
 
       if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        const serverDetail = errJson?.detail;
+        if (typeof serverDetail === "string") {
+          throw new Error(serverDetail);
+        } else if (Array.isArray(serverDetail) && serverDetail.length > 0) {
+          throw new Error(serverDetail[0]?.msg || "Validation error");
+        }
         throw new Error(`Server returned HTTP ${res.status}`);
       }
 
       const data: AuditResponse = await res.json();
       setAuditData(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError("Audit server error. Please check serverless function connection.");
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        setError("Audit server error. Please check serverless function connection.");
+      }
     } finally {
       setLoading(false);
     }
@@ -89,19 +100,24 @@ export default function ReceiptAudit() {
               01 // INPUT DISPUTE NOTICE
             </span>
           </div>
-          <span className="text-[10px] font-mono tracking-wider text-neutral-500 uppercase px-2 py-0.5 rounded bg-neutral-900 border border-white/5">
+          <span className="text-[10px] font-mono tracking-wider text-neutral-400 uppercase px-2 py-0.5 rounded bg-neutral-900 border border-white/5">
             GROQ PYDANTIC V2
           </span>
         </div>
 
         <div className="relative mb-6">
+          <label htmlFor="dispute-notice-input" className="sr-only">
+            Landlord Itemized Deduction Notice Text
+          </label>
           <textarea
+            id="dispute-notice-input"
             value={inputText}
+            aria-label="Landlord Itemized Deduction Notice Text"
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Paste landlord's itemized deduction notice here..."
-            className="w-full h-64 p-5 rounded-2xl bg-neutral-950/80 border border-white/10 text-neutral-100 placeholder:text-neutral-600 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 font-mono text-xs leading-relaxed resize-none transition-all selection:bg-rose-500/30"
+            className="w-full h-64 p-5 rounded-2xl bg-neutral-950/80 border border-white/10 text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 font-mono text-xs leading-relaxed resize-none transition-all selection:bg-rose-500/30"
           />
-          <div className="absolute bottom-4 right-4 text-[10px] font-mono text-neutral-600 pointer-events-none">
+          <div className="absolute bottom-4 right-4 text-[10px] font-mono text-neutral-400 pointer-events-none">
             {inputText.length} CHARS
           </div>
         </div>
@@ -110,6 +126,8 @@ export default function ReceiptAudit() {
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
+            role="alert"
+            aria-live="polite"
             className="mb-6 p-4 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center gap-3"
           >
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
@@ -133,6 +151,7 @@ export default function ReceiptAudit() {
           <button
             type="button"
             disabled={loading}
+            aria-busy={loading}
             onClick={() => handleAudit()}
             className="px-8 py-3.5 rounded-xl bg-white text-neutral-950 font-semibold text-xs tracking-widest uppercase hover:bg-neutral-200 active:scale-98 transition-all flex items-center justify-center gap-3 shadow-xl shadow-white/5 disabled:opacity-50 cursor-pointer"
           >
@@ -152,7 +171,7 @@ export default function ReceiptAudit() {
       </div>
 
       {/* Layer 3: Foreground Dispute Ledger & Statutory Penalty Counter */}
-      <div className="lg:col-span-6 relative z-30">
+      <div className="lg:col-span-6 relative z-30" aria-live="polite">
         <AnimatePresence mode="wait">
           {auditData ? (
             <motion.div
@@ -180,10 +199,11 @@ export default function ReceiptAudit() {
               </div>
 
               {/* Items List */}
-              <div className="space-y-3 mb-6">
+              <div className="space-y-3 mb-6" role="list">
                 {auditData.items.map((item, idx) => (
                   <motion.div
                     key={idx}
+                    role="listitem"
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1, duration: 0.4 }}
@@ -214,9 +234,11 @@ export default function ReceiptAudit() {
                       <div className="text-right shrink-0 font-mono text-xs">
                         {item.is_illegal ? (
                           <div className="flex items-center gap-2">
-                            <span className="line-through text-rose-400/60 font-medium">
+                            <span className="sr-only">Original cost: </span>
+                            <span className="line-through text-rose-300 font-medium">
                               ${item.original_cost.toFixed(2)}
                             </span>
+                            <span className="sr-only">Reduced to: </span>
                             <motion.span
                               initial={{ scale: 0.8, opacity: 0 }}
                               animate={{ scale: [1, 1.2, 1], opacity: 1 }}

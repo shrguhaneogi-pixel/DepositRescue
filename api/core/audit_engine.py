@@ -28,7 +28,7 @@ def audit_deductions(extracted: ExtractedLLMResponse) -> AuditResponse:
     illegal_total = 0.0
 
     for raw in extracted.deductions:
-        cost = max(0.0, float(raw.cost))
+        cost = round(max(0.0, float(raw.cost)), 2)
         raw_total += cost
         
         name_lower = raw.item_name.lower()
@@ -59,8 +59,8 @@ def audit_deductions(extracted: ExtractedLLMResponse) -> AuditResponse:
         audited_items.append(
             AuditedDeductionItem(
                 item_name=raw.item_name,
-                original_cost=round(cost, 2),
-                adjusted_cost=round(adjusted_cost, 2),
+                original_cost=cost,
+                adjusted_cost=adjusted_cost,
                 is_routine_maintenance=is_routine,
                 is_illegal=is_illegal,
                 category=raw.category or "General",
@@ -74,10 +74,11 @@ def audit_deductions(extracted: ExtractedLLMResponse) -> AuditResponse:
     allowed_total = round(raw_total - illegal_total, 2)
     statutory_recovery = round(illegal_total * multiplier, 2)
     
+    mult_str = f"{int(multiplier)}x" if float(multiplier).is_integer() else f"{multiplier}x"
     summary = (
         f"Audited {len(audited_items)} itemized charge(s). "
         f"Found ${illegal_total:.2f} in unlawful routine maintenance charges. "
-        f"Statutory dispute recovery estimate: ${statutory_recovery:.2f} ({int(multiplier)}x illegal withholdings)."
+        f"Statutory dispute recovery estimate: ${statutory_recovery:.2f} ({mult_str} illegal withholdings)."
     )
 
     return AuditResponse(

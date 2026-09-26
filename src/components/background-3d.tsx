@@ -1,29 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { motion, useTransform, useScroll, useSpring } from "framer-motion";
-
-type MotionValueNumber = ReturnType<typeof useScroll>["scrollYProgress"];
-type MotionSpringValue = ReturnType<typeof useSpring>;
-
-declare global {
-  namespace React.JSX {
-    interface IntrinsicElements {
-      "spline-viewer": React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
-          url?: string;
-          "loading-anim-type"?: string;
-        },
-        HTMLElement
-      >;
-    }
-  }
-}
+import { motion, useTransform, MotionValue } from "framer-motion";
 
 interface Background3DProps {
-  scrollYProgress: MotionValueNumber;
-  mouseX: MotionSpringValue;
-  mouseY: MotionSpringValue;
+  scrollYProgress: MotionValue<number>;
+  mouseX: MotionValue<number>;
+  mouseY: MotionValue<number>;
 }
 
 export default function Background3D({ scrollYProgress, mouseX, mouseY }: Background3DProps) {
@@ -57,13 +40,21 @@ export default function Background3D({ scrollYProgress, mouseX, mouseY }: Backgr
     if (!ctx) return;
 
     let animationFrameId: number;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
 
     const handleResize = () => {
       if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      const newDpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * newDpr;
+      canvas.height = height * newDpr;
+      ctx.scale(newDpr, newDpr);
     };
     window.addEventListener("resize", handleResize);
 
