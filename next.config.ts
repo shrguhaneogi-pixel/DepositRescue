@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
         destination:
           process.env.NODE_ENV === "development"
             ? "http://127.0.0.1:8000/api/py/:path*"
-            : "/api/py/:path*",
+            : "/api/:path*",
       },
       {
         source: "/api/audit",

@@ -49,15 +49,15 @@ export default function ReceiptAudit() {
     setError(null);
 
     try {
-      // Primary API endpoint per original task requirements: /api/audit (with fallback to /api/py/audit on 404)
-      let res = await fetch("/api/audit", {
+      // Primary API endpoint: /api/py/audit (maps to /api/audit on Vercel, proxied to port 8000 in dev)
+      let res = await fetch("/api/py/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
 
       if (res.status === 404) {
-        res = await fetch("/api/py/audit", {
+        res = await fetch("/api/audit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
